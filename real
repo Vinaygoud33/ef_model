@@ -1,0 +1,520 @@
+// ======================================================
+// FILE: Models/Category.cs
+// ======================================================
+
+using System.ComponentModel.DataAnnotations;
+
+namespace FastBite.Models
+{
+    public class Category
+    {
+        [Key]
+        public int Id { get; set; }
+
+        [Required]
+        [Display(Name = "CategoryName")]
+        public string Name { get; set; }
+    }
+}
+
+
+
+// ======================================================
+// FILE: Models/SubCategory.cs
+// ======================================================
+
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
+
+namespace FastBite.Models
+{
+    public class SubCategory
+    {
+        [Key]
+        public int Id { get; set; }
+
+        [Required]
+        [Display(Name = "SubCategoryName")]
+        public string Name { get; set; }
+
+        public int CategoryId { get; set; }
+
+        [ForeignKey("CategoryId")]
+        public virtual Category category { get; set; }
+    }
+}
+
+
+
+// ======================================================
+// FILE: Models/ViewModels/CategoryAndSubCategoryModel.cs
+// ======================================================
+
+using System.Collections.Generic;
+
+namespace FastBite.Models.ViewModels
+{
+    public class CategoryAndSubCategoryModel
+    {
+        public IEnumerable<Category> categoryList { get; set; }
+
+        public SubCategory subCategory { get; set; }
+
+        public List<string> subCategoryList { get; set; }
+
+        public string errorMessage { get; set; }
+    }
+}
+
+
+
+// ======================================================
+// FILE: Areas/Admin/Controllers/CategoryController.cs
+// ======================================================
+
+using Microsoft.AspNetCore.Mvc;
+using System.Linq;
+using FastBite.Models;
+
+namespace FastBite.Areas.Admin.Controllers
+{
+    public class CategoryController : Controller
+    {
+        private readonly ApplicationDbContext _db;
+
+        public CategoryController(ApplicationDbContext db)
+        {
+            _db = db;
+        }
+
+        public IActionResult Index()
+        {
+            var list = _db.Category.OrderBy(c => c.Name).ToList();
+
+            return View(list);
+        }
+
+        public IActionResult Create()
+        {
+            return View();
+        }
+
+        [HttpPost]
+        public IActionResult Create(Category obj)
+        {
+            if (ModelState.IsValid)
+            {
+                _db.Category.Add(obj);
+                _db.SaveChanges();
+
+                return RedirectToAction("Index");
+            }
+
+            return View(obj);
+        }
+
+        public IActionResult Edit(int id)
+        {
+            var obj = _db.Category.Find(id);
+
+            if (obj == null)
+                return NotFound();
+
+            return View(obj);
+        }
+
+        [HttpPost]
+        public IActionResult Edit(Category obj)
+        {
+            if (ModelState.IsValid)
+            {
+                _db.Category.Update(obj);
+
+                _db.SaveChanges();
+
+                return RedirectToAction("Index");
+            }
+
+            return View(obj);
+        }
+
+        public IActionResult Delete(int id)
+        {
+            var obj = _db.Category.Find(id);
+
+            if (obj == null)
+                return NotFound();
+
+            return View(obj);
+        }
+
+        [HttpPost, ActionName("Delete")]
+        public IActionResult DeletePost(int id)
+        {
+            var obj = _db.Category.Find(id);
+
+            if (obj == null)
+                return NotFound();
+
+            _db.Category.Remove(obj);
+
+            _db.SaveChanges();
+
+            return RedirectToAction("Index");
+        }
+    }
+}
+
+
+
+// ======================================================
+// FILE: Areas/Admin/Controllers/SubCategoryController.cs
+// ======================================================
+
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using System.Collections.Generic;
+using System.Linq;
+using FastBite.Models;
+using FastBite.Models.ViewModels;
+
+namespace FastBite.Areas.Admin.Controllers
+{
+    public class SubCategoryController : Controller
+    {
+        private readonly ApplicationDbContext _db;
+
+        public SubCategoryController(ApplicationDbContext db)
+        {
+            _db = db;
+        }
+
+        public IActionResult Index()
+        {
+            var list = _db.SubCategory.Include(x => x.category).ToList();
+
+            return View(list);
+        }
+
+        public IActionResult Create()
+        {
+            CategoryAndSubCategoryModel vm =
+                new CategoryAndSubCategoryModel()
+                {
+                    categoryList = _db.Category.ToList(),
+
+                    subCategory = new SubCategory(),
+
+                    subCategoryList = new List<string>()
+                };
+
+            return View(vm);
+        }
+
+        [HttpPost]
+        public IActionResult Create(CategoryAndSubCategoryModel vm)
+        {
+            if (ModelState.IsValid)
+            {
+                _db.SubCategory.Add(vm.subCategory);
+
+                _db.SaveChanges();
+
+                return RedirectToAction("Index");
+            }
+
+            return View(vm);
+        }
+
+        public IActionResult Delete(int id)
+        {
+            var cat = _db.SubCategory.Find(id);
+
+            if (cat == null)
+                return NotFound();
+
+            return View(cat);
+        }
+
+        [HttpPost, ActionName("Delete")]
+        public IActionResult DeletePost(int id)
+        {
+            var obj = _db.SubCategory.Find(id);
+
+            _db.SubCategory.Remove(obj);
+
+            _db.SaveChanges();
+
+            return RedirectToAction("Index");
+        }
+    }
+}
+
+
+
+// ======================================================
+// FILE: Views/Category/Index.cshtml
+// ======================================================
+
+@model IEnumerable<Category>
+
+@{
+    ViewData["Title"] = "Index";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<a asp-action="Create">Create New</a>
+
+<table class="table">
+
+    <tr>
+        <th>CategoryName</th>
+        <th></th>
+    </tr>
+
+    @foreach(var obj in Model)
+    {
+        <tr>
+
+            <td>@obj.Name</td>
+
+            <td>
+
+                <a asp-action="Edit" asp-route-id="@obj.Id">Edit</a>
+
+                <a asp-action="Delete" asp-route-id="@obj.Id">Delete</a>
+
+            </td>
+
+        </tr>
+    }
+
+</table>
+
+
+
+// ======================================================
+// FILE: Views/Category/Create.cshtml
+// ======================================================
+
+@model Category
+
+@{
+    ViewData["Title"] = "Create";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<form method="post">
+
+    <div>
+
+        <label>Category Name</label>
+
+        <input id="Name" asp-for="Name" />
+
+    </div>
+
+    <div>
+
+        <input type="submit" value="Create" />
+
+        <a asp-action="Index">Back To List</a>
+
+    </div>
+
+</form>
+
+
+
+// ======================================================
+// FILE: Views/Category/Edit.cshtml
+// ======================================================
+
+@model Category
+
+@{
+    ViewData["Title"] = "Edit";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<br/>
+
+<h2 class="text-info">Edit Category</h2>
+
+<br/>
+
+<form method="post">
+
+    <input type="hidden" asp-for="Id" />
+
+    <div>
+
+        <label>Category Name</label>
+
+        <input id="Name" asp-for="Name" />
+
+    </div>
+
+    <div>
+
+        <input type="submit" value="Update" />
+
+        <a asp-action="Index">Back To List</a>
+
+    </div>
+
+</form>
+
+
+
+// ======================================================
+// FILE: Views/Category/Delete.cshtml
+// ======================================================
+
+@model Category
+
+@{
+    ViewData["Title"] = "Edit";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<form method="post">
+
+    <input type="hidden" asp-for="Id" />
+
+    <div>
+
+        <label>Category Name</label>
+
+        <input id="Name" asp-for="Name" />
+
+    </div>
+
+    <div>
+
+        <input type="submit" value="Delete" />
+
+        <a asp-action="Index">Back To List</a>
+
+    </div>
+
+</form>
+
+
+
+// ======================================================
+// FILE: Views/SubCategory/Index.cshtml
+// ======================================================
+
+@model IEnumerable<SubCategory>
+
+<a asp-action="Create">Create New</a>
+
+<table class="table">
+
+    <tr>
+        <th>SubCategoryName</th>
+        <th>CategoryName</th>
+        <th></th>
+    </tr>
+
+    @foreach(var obj in Model)
+    {
+        <tr>
+
+            <td>@obj.Name</td>
+
+            <td>@obj.category?.Name</td>
+
+            <td>
+
+                <a asp-action="Edit" asp-route-id="@obj.Id">Edit</a>
+
+                <a asp-action="Delete" asp-route-id="@obj.Id">Delete</a>
+
+            </td>
+
+        </tr>
+    }
+
+</table>
+
+
+
+// ======================================================
+// FILE: Views/SubCategory/Create.cshtml
+// ======================================================
+
+@model FastBite.Models.ViewModels.CategoryAndSubCategoryModel
+
+@{
+    ViewData["Title"] = "Create";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<form method="post">
+
+    <div>
+
+        <label>Category</label>
+
+        <select id="ddCategoryList"
+                asp-for="subCategory.CategoryId"
+                asp-items="@(new SelectList(Model.categoryList, "Id", "Name"))">
+        </select>
+
+    </div>
+
+    <div>
+
+        <label>SubCategory Name</label>
+
+        <input id="subCategory_Name"
+               asp-for="subCategory.Name" />
+
+    </div>
+
+    <div>
+
+        <input type="submit" value="Create" />
+
+        <a asp-action="Index">Back To List</a>
+
+    </div>
+
+</form>
+
+
+
+// ======================================================
+// FILE: Views/SubCategory/Delete.cshtml
+// ======================================================
+
+@model SubCategory
+
+@{
+    ViewData["Title"] = "Edit";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<form method="post">
+
+    <input type="hidden" asp-for="Id" />
+
+    <div>
+
+        <label>SubCategory Name</label>
+
+        <input id="Name" asp-for="Name" />
+
+    </div>
+
+    <div>
+
+        <input type="submit" value="Delete" />
+
+        <a asp-action="Index">Back To List</a>
+
+    </div>
+
+</form>
