@@ -1,0 +1,401 @@
+/////////////////////////////////////////////////////////Controllers/CategoryController.cs
+
+using FastBite.Data;
+using FastBite.Models;
+using Microsoft.AspNetCore.Mvc;
+using System.Linq;
+
+namespace FastBite.Controllers
+{
+    public class CategoryController : Controller
+    {
+        private readonly ApplicationDbContext _db;
+
+        public CategoryController(ApplicationDbContext db)
+        {
+            _db = db;
+        }
+
+        public IActionResult Index()
+        {
+            return View(_db.Category.ToList());
+        }
+
+        public IActionResult Create()
+        {
+            return View();
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public IActionResult Create(Category obj)
+        {
+            if (ModelState.IsValid)
+            {
+                _db.Category.Add(obj);
+                _db.SaveChanges();
+                return RedirectToAction(nameof(Index));
+            }
+
+            return View(obj);
+        }
+
+        public IActionResult Edit(int id)
+        {
+            var obj = _db.Category.Find(id);
+
+            if (obj == null)
+                return NotFound();
+
+            return View(obj);
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public IActionResult Edit(Category obj)
+        {
+            if (ModelState.IsValid)
+            {
+                _db.Category.Update(obj);
+                _db.SaveChanges();
+                return RedirectToAction(nameof(Index));
+            }
+
+            return View(obj);
+        }
+
+        public IActionResult Delete(int id)
+        {
+            var obj = _db.Category.Find(id);
+
+            if (obj == null)
+                return NotFound();
+
+            return View(obj);
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public IActionResult Delete(Category obj)
+        {
+            _db.Category.Remove(obj);
+            _db.SaveChanges();
+
+            return RedirectToAction(nameof(Index));
+        }
+    }
+}
+
+////////////////////////////////////////////////////////////////Controllers/SubCategoryController.cs
+
+using FastBite.Data;
+using FastBite.Models;
+using FastBite.Models.ViewModels;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using System.Collections.Generic;
+using System.Linq;
+
+namespace FastBite.Controllers
+{
+    public class SubCategoryController : Controller
+    {
+        private readonly ApplicationDbContext _db;
+
+        public SubCategoryController(ApplicationDbContext db)
+        {
+            _db = db;
+        }
+
+        public IActionResult Index()
+        {
+            var objList = _db.SubCategory
+                             .Include(x => x.category)
+                             .ToList();
+
+            return View(objList);
+        }
+
+        public IActionResult Create()
+        {
+            CategoryAndSubCategoryModel obj = new CategoryAndSubCategoryModel
+            {
+                categoryList = _db.Category.ToList(),
+                subCategory = new SubCategory(),
+                subCategoryList = new List<string>()
+            };
+
+            return View(obj);
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public IActionResult Create(CategoryAndSubCategoryModel obj)
+        {
+            if (ModelState.IsValid)
+            {
+                _db.SubCategory.Add(obj.subCategory);
+                _db.SaveChanges();
+
+                return RedirectToAction(nameof(Index));
+            }
+
+            obj.categoryList = _db.Category.ToList();
+
+            return View(obj);
+        }
+
+        public IActionResult Edit(int id)
+        {
+            var subCat = _db.SubCategory.Find(id);
+
+            if (subCat == null)
+                return NotFound();
+
+            CategoryAndSubCategoryModel obj = new CategoryAndSubCategoryModel
+            {
+                subCategory = subCat,
+                categoryList = _db.Category.ToList()
+            };
+
+            return View(obj);
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public IActionResult Edit(CategoryAndSubCategoryModel obj)
+        {
+            if (ModelState.IsValid)
+            {
+                _db.SubCategory.Update(obj.subCategory);
+                _db.SaveChanges();
+
+                return RedirectToAction(nameof(Index));
+            }
+
+            obj.categoryList = _db.Category.ToList();
+
+            return View(obj);
+        }
+
+        public IActionResult Delete(int id)
+        {
+            var obj = _db.SubCategory.Find(id);
+
+            if (obj == null)
+                return NotFound();
+
+            return View(obj);
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public IActionResult Delete(SubCategory obj)
+        {
+            _db.SubCategory.Remove(obj);
+            _db.SaveChanges();
+
+            return RedirectToAction(nameof(Index));
+        }
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////Views/Category/Index.cshtml
+
+
+@model IEnumerable<FastBite.Models.Category>
+
+<h2>Category List</h2>
+
+<a asp-action="Create">Create New</a>
+
+<table class="table">
+    <thead>
+        <tr>
+            <th>Category Name</th>
+            <th></th>
+        </tr>
+    </thead>
+
+    <tbody>
+        @foreach (var item in Model)
+        {
+            <tr>
+                <td>@item.Name</td>
+                <td>
+                    <a asp-action="Edit" asp-route-id="@item.Id">Edit</a>
+                    <a asp-action="Delete" asp-route-id="@item.Id">Delete</a>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+
+/////////////////////////////////////////////////////////////////////Views/Category/Create.cshtml
+
+@model FastBite.Models.Category
+
+<h2>Create Category</h2>
+
+<form method="post">
+    <div>
+        <label>Category Name</label>
+        <input id="Name" asp-for="Name" />
+    </div>
+
+    <br />
+
+    <button type="submit">Create</button>
+</form>
+
+////////////////////////////////////////////////////////////////////////Views/Category/Edit.cshtml
+
+@model FastBite.Models.Category
+
+<h2>Edit Category</h2>
+
+<form method="post">
+    <input type="hidden" asp-for="Id" />
+
+    <div>
+        <label>Category Name</label>
+        <input id="Name" asp-for="Name" />
+    </div>
+
+    <br />
+
+    <button type="submit">Update</button>
+</form>
+
+
+//////////////////////////////////////////////////////////////////////////Views/Category/Delete.cshtml
+
+@model FastBite.Models.Category
+
+<h2>Delete Category</h2>
+
+<form method="post">
+    <input type="hidden" asp-for="Id" />
+
+    <div>
+        <label>Category Name</label>
+        <input id="Name" asp-for="Name" readonly />
+    </div>
+
+    <br />
+
+    <button type="submit">Delete</button>
+</form>
+
+////////////////////////////////////////////////////////////////////Views/SubCategory/Index.cshtml
+
+@model IEnumerable<FastBite.Models.SubCategory>
+
+<h2>SubCategory List</h2>
+
+<a asp-action="Create">Create New</a>
+
+<table class="table">
+    <thead>
+        <tr>
+            <th>SubCategory Name</th>
+            <th>Category Name</th>
+            <th></th>
+        </tr>
+    </thead>
+
+    <tbody>
+        @foreach (var item in Model)
+        {
+            <tr>
+                <td>@item.Name</td>
+                <td>@item.category.Name</td>
+                <td>
+                    <a asp-action="Edit" asp-route-id="@item.Id">Edit</a>
+                    <a asp-action="Delete" asp-route-id="@item.Id">Delete</a>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+
+///////////////////////////////////////////////////////////////////Views/SubCategory/Create.cshtml
+
+@model FastBite.Models.ViewModels.CategoryAndSubCategoryModel
+
+<h2>Create SubCategory</h2>
+
+<form method="post">
+    <div>
+        <label>Category</label>
+
+        <select id="ddCategoryList"
+                asp-for="subCategory.CategoryId"
+                asp-items='@(new SelectList(Model.categoryList, "Id", "Name"))'>
+        </select>
+    </div>
+
+    <br />
+
+    <div>
+        <label>SubCategory Name</label>
+        <input id="subCategory_Name" asp-for="subCategory.Name" />
+    </div>
+
+    <br />
+
+    <button type="submit">Create</button>
+</form>
+
+//////////////////////////////////////////////////////////////////////Views/SubCategory/Edit.cshtml
+
+@model FastBite.Models.ViewModels.CategoryAndSubCategoryModel
+
+<h2>Edit SubCategory</h2>
+
+<form method="post">
+    <input type="hidden" asp-for="subCategory.Id" />
+
+    <div>
+        <label>Category</label>
+
+        <select id="ddCategoryList"
+                asp-for="subCategory.CategoryId"
+                asp-items='@(new SelectList(Model.categoryList, "Id", "Name"))'>
+        </select>
+    </div>
+
+    <br />
+
+    <div>
+        <label>SubCategory Name</label>
+        <input id="subCategory_Name" asp-for="subCategory.Name" />
+    </div>
+
+    <br />
+
+    <button type="submit">Update</button>
+</form>
+
+///////////////////////////////////////////////////////Views/SubCategory/Delete.cshtml
+
+@model FastBite.Models.SubCategory
+
+<h2>Delete SubCategory</h2>
+
+<form method="post">
+    <input type="hidden" asp-for="Id" />
+
+    <div>
+        <label>SubCategory Name</label>
+        <input asp-for="Name" readonly />
+    </div>
+
+    <br />
+
+    <button type="submit">Delete</button>
+</form>
+
+/////////////////////////////////////////////////////////
