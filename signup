@@ -1,0 +1,271 @@
+// #############################################################
+// FOLDER : pages
+// #############################################################
+
+
+
+// =============================================================
+// FILE : pages/SignUpForm.js
+// =============================================================
+
+import React, { Component } from "react";
+import { NavLink } from "react-router-dom";
+import { Input } from "reactstrap";
+import "../App.css";
+
+class SignUpForm extends Component {
+  constructor(props) {
+    super(props);
+
+    this.state = {
+      uname: "",
+      email: "",
+      password: "",
+      dob: "",
+      mobileno: "",
+      location: ""
+    };
+
+    // Comment out these two lines
+
+    // this.handleChange = this.handleChange.bind(this);
+    // this.handleSubmit = this.handleSubmit.bind(this);
+  }
+
+  handleChange = (e) => {
+    this.setState({
+      [e.target.name]: e.target.value
+    });
+  }
+
+  handleSubmit = (e) => {
+    //write code here to save the user details in backend server
+    //submit should not happen when fields are empty
+    e.preventDefault();
+
+    const { uname, email, password, mobileno, location } = this.state;
+    if (!uname || !email || !password || !mobileno || !location) {
+      alert("Please fill in all the fields.");
+      return;
+    }
+
+    const payload = {
+      user_name: uname,
+      user_email: email,
+      password: password,
+      user_mobile: parseInt(mobileno) || 0,
+      location: location
+    };
+
+    fetch("/api/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    })
+      .then(response => response.json())
+      .then(data => {
+        if(data.message === "Registration successful") {
+          alert(data.message);
+          this.props.history.push("/sign-in");
+        }
+      })
+      .catch(error => console.error(error));
+  }
+
+  render() {
+    return (
+      <div>
+        <div>
+          <h3 style={{ textAlign: "center", paddingBottom: "10px" }}>
+            Digital Medical Record Database
+          </h3>
+        </div>
+        <div className="FormCenter">
+          <div className="FormTitle">
+            <NavLink to="/sign-in" className="FormTitle__Link">
+              Login
+            </NavLink>{" "}
+            or
+            <NavLink exact to="/" className="FormTitle__Link">
+              Register
+            </NavLink>
+          </div>
+
+          <form onSubmit={this.handleSubmit} className="FormFields">
+
+            <label>Name</label>
+            <br/>
+            <input
+              type="text"
+              name="uname"
+              value={this.state.uname}
+              onChange={this.handleChange}
+            />
+            <br/><br/>
+
+            <label>E-mail ID</label>
+            <br/>
+            <input
+              type="email"
+              name="email"
+              value={this.state.email}
+              onChange={this.handleChange}
+            />
+            <br/><br/>
+
+            <label>Password</label>
+            <br/>
+            <input
+              type="password"
+              name="password"
+              value={this.state.password}
+              onChange={this.handleChange}
+            />
+            <br/><br/>
+
+            <label>Mobile No</label>
+            <br/>
+            <input
+              type="text"
+              name="mobileno"
+              value={this.state.mobileno}
+              onChange={this.handleChange}
+            />
+            <br/><br/>
+
+            <label>Location</label>
+            <br/>
+            <input
+              type="text"
+              name="location"
+              value={this.state.location}
+              onChange={this.handleChange}
+            />
+            <br/><br/>
+
+            <button type="submit">Register</button>
+          </form>
+        </div>
+      </div>
+    );
+  }
+}
+
+export default SignUpForm;
+
+
+
+// =============================================================
+// FILE : pages/SignInForm.js
+// =============================================================
+
+import React, { Component } from "react";
+import { NavLink } from "react-router-dom";
+import "../App.css";
+
+class SignInForm extends Component {
+  constructor() {
+    super();
+
+    this.state = {
+      email: "",
+      password: ""
+    };
+
+    // this.handleSubmit = this.handleSubmit.bind(this);
+  }
+
+  handleChange = (e) => {
+    this.setState({
+      [e.target.name]: e.target.value
+    });
+  }
+
+  handleSubmit = (e) => {
+    //write code here to save user credentials in backend
+    //submit should not happen when fields are empty
+    e.preventDefault();
+
+    const { email, password } = this.state;
+
+    if(!email || !password) {
+      alert("Please fill in both fields.");
+      return;
+    }
+
+    const payload = {
+      user_email: email,
+      password: password
+    };
+
+    fetch("/api/signin", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    })
+    .then(response => response.json())
+    .then(data => {
+      if(data.message === "Authentication successful!") {
+        alert(data.message);
+        localStorage.setItem("token", data.token);
+        localStorage.setItem("userId", data.id);
+
+        this.props.history.push("/allPatients");
+      } else {
+        alert(data.message || "Invalid Credentials");
+      }
+    })
+    .catch(error => console.error("Login error:", error));
+  }
+
+  render() {
+    return (
+      <div>
+        <div>
+          <h3 style={{ textAlign: "center", paddingBottom: "10px" }}>
+            Digital Medical Record Database
+          </h3>
+        </div>
+        <div className="FormCenter">
+          <div className="FormTitle">
+            <NavLink to="/sign-in" className="FormTitle__Link">
+              Login
+            </NavLink>{" "}
+            or
+            <NavLink exact to="/" className="FormTitle__Link">
+              Register
+            </NavLink>
+          </div>
+
+          <form onSubmit={this.handleSubmit} className="FormFields">
+
+            <label>E-mail address</label>
+            <br/>
+            <input
+              type="email"
+              name="email"
+              value={this.state.email}
+              onChange={this.handleChange}
+            />
+            <br/><br/>
+
+            <label>Password</label>
+            <br/>
+            <input
+              type="password"
+              name="password"
+              value={this.state.password}
+              onChange={this.handleChange}
+            />
+            <br/><br/>
+
+            <button type="submit">Login</button>
+
+          </form>
+        </div>
+      </div>
+    );
+  }
+}
+
+export default SignInForm;
