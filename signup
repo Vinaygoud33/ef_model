@@ -269,3 +269,350 @@ class SignInForm extends Component {
 }
 
 export default SignInForm;
+
+
+// =============================================================
+// FILE : pages/NavBar.jsx
+// =============================================================
+
+import React, { useState } from "react";
+import MediLogo from "../images/Medi-logo.png";
+import {
+  Collapse,
+  Navbar,
+  NavbarToggler,
+  NavbarBrand,
+  Nav,
+  UncontrolledDropdown,
+  DropdownToggle,
+  DropdownMenu,
+  DropdownItem
+} from "reactstrap";
+import { NavLink as ReactLink } from "react-router-dom";
+
+const Example = props => {
+  const [isOpen, setIsOpen] = useState(false);
+
+  const toggle = () => setIsOpen(!isOpen);
+
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("userId");
+    window.location.hash = "/sign-in";
+  };
+
+  return (
+    <div>
+      <Navbar style={{ backgroundColor: "#D3D3D3" }} light expand="md">
+        <NavbarBrand tag={ReactLink} to="/allPatients">
+          <img src={MediLogo} style={{ width: 100, marginTop: -7 }} />
+        </NavbarBrand>
+
+        <NavbarToggler onClick={toggle} />
+        <Collapse isOpen={isOpen} navbar>
+          <Nav className="mr-auto" navbar>
+
+            <UncontrolledDropdown nav inNavbar>
+              <DropdownToggle nav caret>
+                Patient
+              </DropdownToggle>
+              <DropdownMenu right>
+                <DropdownItem tag={ReactLink} to="/addPatient">
+                  Add Patient
+                </DropdownItem>
+                <DropdownItem tag={ReactLink} to="/allPatients">
+                  All Patient
+                </DropdownItem>
+              </DropdownMenu>
+            </UncontrolledDropdown>
+
+            <UncontrolledDropdown nav inNavbar>
+              <DropdownToggle nav caret>
+                Appointments
+              </DropdownToggle>
+              <DropdownMenu right>
+                <DropdownItem tag={ReactLink} to="/bookAppointment">
+                  Book Appointment
+                </DropdownItem>
+                <DropdownItem tag={ReactLink} to="/allAppointments">
+                  All Appointments
+                </DropdownItem>
+              </DropdownMenu>
+            </UncontrolledDropdown>
+
+            <UncontrolledDropdown nav inNavbar>
+              <DropdownToggle nav caret>
+                User
+              </DropdownToggle>
+              <DropdownMenu right>
+                <DropdownItem tag={ReactLink} to="/viewProfile">
+                  View Profile
+                </DropdownItem>
+                <DropdownItem tag={ReactLink} to="/editProfile">
+                  Edit Profile
+                </DropdownItem>
+                <DropdownItem onClick={handleLogout}>
+                  Logout
+                </DropdownItem>
+              </DropdownMenu>
+            </UncontrolledDropdown>
+          </Nav>
+        </Collapse>
+      </Navbar>
+    </div>
+  );
+};
+
+export default Example;
+
+
+
+// =============================================================
+// FILE : pages/AllPatients.jsx
+// =============================================================
+
+import React, { Component } from "react";
+import NavBar from "./NavBar.jsx";
+import "../App.css";
+
+class AllPatients extends Component {
+  constructor(props) {
+    super(props);
+    this.state = {
+      patientsList: []
+    };
+    this.handleView = this.handleView.bind(this);
+    this.handleDelete = this.handleDelete.bind(this);
+    this.getPatientsList = this.getPatientsList.bind(this);
+  }
+
+  componentDidMount() {
+    this.getPatientsList();
+  }
+
+  getPatientsList() {
+    const token = localStorage.getItem("token");
+
+    fetch("/api/patients/list/", {
+      method: "GET",
+      headers: {
+        "Authorization": `Bearer ${token}`,
+        "Content-type": "application/json"
+      }
+    })
+    .then(response => {
+      if(!response.ok) {
+        throw new Error("Unauthorized or server error");
+      }
+      return response.json()
+    })
+    .then(data => {
+      this.setState({ patientsList: data });
+    })
+    .catch(error => {
+      console.error("Error fetching patients:", error);
+    });
+  }
+
+  handleView(id) {
+    this.props.history.push(`/viewPatient/${id}`);
+  }
+
+  handleDelete(id) {
+
+  }
+
+  render() {
+    const { patientsList } = this.state;
+
+    return (
+      <div style={{ height: "100%" }}>
+        <NavBar />
+        <form style={{ display: "flex", height: "100%", alignItems: "center" }}>
+          {patientsList.length === 0 ? (
+            <h1 style={{ textAlign: "center", flexGrow: "1" }}>
+              No Patients Found
+            </h1>
+          ) : (
+            <div style={{ width: "100%", height: "100%" }}>
+              <div>
+                <p
+                  style={{
+                    textAlign: "center",
+                    paddingBottom: "10px",
+                    paddingTop: "10px",
+                    fontSize: "2em",
+                    color: "black"
+                  }}
+                >
+                  List of All Patients
+                </p>
+              </div>
+              {patientsList.map((patient, index) => (
+                <div
+                  key={index}
+                  className="FormField"
+                  style={{ backgroundColor: "#D3D3D3" }}
+                  fontSize="20px"
+                >
+                  <span style={{ fontSize: "20px" }} value={patient.patient_email}>
+                    {patient.patient_name}
+                  </span>
+
+                  <button type="button" className="FormField_Button" onClick={() => this.handleView(patient.id)}>
+                    View
+                  </button>
+
+                  <button type="button" className="FormField_Button" onClick={() => this.handleDelete(patient.id)}>
+                    Delete
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </form>
+      </div>
+    );
+  }
+}
+
+export default AllPatients;
+
+
+
+// =============================================================
+// FILE : pages/AddPatient.jsx
+// =============================================================
+
+import React, { Component } from "react";
+import NavBar from "./NavBar.jsx";
+import "../App.css";
+
+class AddPatient extends Component {
+  constructor(props) {
+    super(props);
+    this.state = {
+      name: "",
+      email: "",
+      dob: "",
+      location: "",
+      mobile: ""
+    }
+    this.handleChange = this.handleChange.bind(this);
+    this.handleSubmit = this.handleSubmit.bind(this);
+    this.handleCancel = this.handleCancel.bind(this);
+  }
+
+  handleChange(e) {
+    this.setState({
+      [e.target.name]: e.target.value
+    });
+  }
+
+  handleSubmit(e) {
+    e.preventDefault();
+    const { name, email, dob, location, mobile } = this.state;
+
+    if(!name || !email || !dob || !location || !mobile) {
+      alert("Please fill in all fields");
+      return;
+    }
+
+    const payload = {
+      patient_name: name,
+      patient_email: email,
+      patient_dob: dob,
+      location: location,
+      patient_mobile: parseInt(mobile) || 0,
+      registeredDate: new Date().toISOString()
+    };
+
+    const token = localStorage.getItem("token");
+
+    fetch("/api/patients/register", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${token}`,
+        "Content-type": "application/json"
+      },
+      body: JSON.stringify(payload)
+    })
+    .then(response => {
+      if(!response.ok) {
+        throw new Error("Backend rejected request, check token.");
+      }
+      return response.json();
+    })
+    .then(data => {
+      if(data.message === "Registration successful") {
+        alert(data.message);
+        this.props.history.push("/allPatients");
+      } else {
+        alert("Failed to add patient.");
+      }
+    })
+    .catch(error => {
+      console.error("Error adding patients:", error);
+    });
+  }
+
+  handleCancel(e) {
+    e.preventDefault();
+    this.props.history.push("/allPatients");
+  }
+
+  render() {
+    return (
+      <div>
+        <NavBar />
+        <div>
+          <p
+            style={{
+              textAlign: "center",
+              paddingBottom: "10px",
+              paddingTop: "30px",
+              fontSize: "2em"
+            }}
+          >
+            Adding a Patient
+          </p>
+        </div>
+        <div className="FormCenter">
+          <form onSubmit={this.handleSubmit} className="FormFields">
+
+            <label>Name</label>
+            <br/>
+            <input type="text" name="name" value={this.state.name} onChange={this.handleChange} />
+            <br/><br/>
+
+            <label>E-mail ID</label>
+            <br/>
+            <input type="email" name="email" value={this.state.email} onChange={this.handleChange} />
+            <br/><br/>
+
+            <label>Date of Birth</label>
+            <br/>
+            <input type="date" name="dob" value={this.state.dob} onChange={this.handleChange} />
+            <br/><br/>
+
+            <label>Location</label>
+            <br/>
+            <input type="text" name="location" value={this.state.location} onChange={this.handleChange} />
+            <br/><br/>
+
+            <label>Mobile</label>
+            <br/>
+            <input type="text" name="mobile" value={this.state.mobile} onChange={this.handleChange} />
+            <br/><br/>
+
+            <button type="submit">Register</button>
+            <button type="button" onClick={this.handleCancel}>Cancel</button>
+
+          </form>
+        </div>
+      </div>
+    );
+  }
+}
+
+export default AddPatient;
