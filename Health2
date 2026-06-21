@@ -1,0 +1,452 @@
+// =====================================================
+// File: Controllers/AuthController.cs
+// =====================================================
+
+using System;
+using System.Linq;
+using HealthCareService.Models;
+using HealthCareService.Services;
+using Microsoft.AspNetCore.Mvc;
+
+namespace HealthCareService.Controllers
+{
+    [ApiController]
+    [Route("/")]
+    public class AuthController : ControllerBase
+    {
+        private readonly ApplicationDbContext _context;
+        private readonly JwtService _jwt;
+
+        public AuthController(ApplicationDbContext context, JwtService jwt)
+        {
+            _context = context;
+            _jwt = jwt;
+        }
+
+        [HttpPost("register")]
+        public IActionResult Register(ApplicationUser user)
+        {
+            if (string.IsNullOrEmpty(user.user_email) || user.password.Length < 5)
+            {
+                return BadRequest(new { message = "Password or username policy failed" });
+            }
+
+            user.Id = Guid.NewGuid().ToString();
+
+            _context.User.Add(user);
+            _context.SaveChanges();
+
+            return Ok(new { message = "Registration successful" });
+        }
+
+        [HttpPost("signin")]
+        public IActionResult Login(ApplicationUser login)
+        {
+            var user = _context.User.FirstOrDefault(
+                x => x.user_email == login.user_email && x.password == login.password
+            );
+
+            if (user == null)
+            {
+                return Unauthorized(new { message = "Username or Password is Incorrect." });
+            }
+
+            var token = _jwt.GenerateToken(user.Id);
+
+            return Ok(
+                new
+                {
+                    message = "Authentication successful",
+                    token = token,
+                    id = user.Id
+                }
+            );
+        }
+    }
+}
+
+
+// =====================================================
+// File: Controllers/PatientController.cs
+// =====================================================
+
+using System;
+using System.Linq;
+using HealthCareService.Models;
+using Microsoft.AspNetCore.Mvc;
+
+namespace HealthCareService.Controllers
+{
+    [ApiController]
+    [Route("patients")]
+    public class PatientController : ControllerBase
+    {
+        public ApplicationDbContext _context;
+
+        public PatientController(ApplicationDbContext context)
+        {
+            _context = context;
+        }
+
+        [HttpPost("register")]
+        public IActionResult Register(Patient patient)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(patient.Id))
+                {
+                    patient.Id = Guid.NewGuid().ToString();
+                }
+
+                patient.registeredDate = DateTime.Now;
+
+                _context.Patients.Add(patient);
+                _context.SaveChanges();
+
+                return Ok(new { message = "Registration successful" });
+            }
+            catch
+            {
+                return BadRequest(new { message = "Registration failure" });
+            }
+        }
+
+        [HttpGet("list")]
+        public IActionResult GetAll()
+        {
+            return Ok(_context.Patients.ToList());
+        }
+
+        [HttpGet("view/{id}")]
+        public IActionResult Get(string id)
+        {
+            var patient = _context.Patients.Find(id);
+            return Ok(patient);
+        }
+
+        [HttpDelete("delete/{id}")]
+        public IActionResult Delete(string id)
+        {
+            var patient = _context.Patients.Find(id);
+
+            if (patient == null)
+                return NotFound();
+
+            _context.Patients.Remove(patient);
+            _context.SaveChanges();
+
+            return Ok();
+        }
+    }
+}
+
+
+// =====================================================
+// File: Controllers/AppointmentController.cs
+// =====================================================
+
+using System;
+using System.Linq;
+using HealthCareService.Models;
+using Microsoft.AspNetCore.Mvc;
+
+namespace HealthCareService.Controllers
+{
+    [ApiController]
+    [Route("appointment")]
+    public class AppointmentController : ControllerBase
+    {
+        public ApplicationDbContext _context;
+
+        public AppointmentController(ApplicationDbContext context)
+        {
+            _context = context;
+        }
+
+        [HttpPost("register")]
+        public IActionResult Book(Appointment appt)
+        {
+            try
+            {
+                appt.bookingId = Guid.NewGuid().ToString();
+                appt.bookingTime = DateTime.Now;
+
+                _context.Appointments.Add(appt);
+                _context.SaveChanges();
+
+                return Ok(new { message = "Booking successful" });
+            }
+            catch
+            {
+                return BadRequest(new { message = "Booking failure" });
+            }
+        }
+
+        [HttpGet("list")]
+        public IActionResult GetAll()
+        {
+            return Ok(_context.Appointments.ToList());
+        }
+
+        [HttpGet("view/{id}")]
+        public IActionResult Get(string id)
+        {
+            return Ok(_context.Appointments.Find(id));
+        }
+
+        [HttpGet("list/{patientId}")]
+        public IActionResult GetByPatient(string patientId)
+        {
+            return Ok(
+                _context.Appointments.Where(a => a.patientId == patientId).ToList()
+            );
+        }
+
+        [HttpDelete("delete/{id}")]
+        public IActionResult Delete(string id)
+        {
+            var appt = _context.Appointments.Find(id);
+
+            if (appt == null)
+                return NotFound();
+
+            _context.Appointments.Remove(appt);
+            _context.SaveChanges();
+
+            return Ok();
+        }
+    }
+}
+
+
+// =====================================================
+// File: Controllers/UserController.cs
+// =====================================================
+
+using System;
+using System.Collections.Generic;
+using System.IdentityModel.Tokens.Jwt;
+using System.Linq;
+using System.Security.Claims;
+using System.Text;
+using HealthCareService.Models;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.IdentityModel.Tokens;
+
+namespace HealthCareService.Controllers
+{
+    [Authorize]
+    [ApiController]
+    [Route("/")]
+    public class UserController : ControllerBase
+    {
+        public ApplicationDbContext _context;
+
+        public UserController(ApplicationDbContext context)
+        {
+            _context = context;
+        }
+
+        [AllowAnonymous]
+        [HttpGet("database")]
+        public void emptyDatabase()
+        {
+            _context.Database.EnsureDeleted();
+        }
+
+        [HttpGet("viewprofile/{id}")]
+        public IActionResult GetUser(string id)
+        {
+            var user = _context.User.Find(id);
+
+            if (user == null)
+                return NotFound();
+
+            return Ok(user);
+        }
+
+        [HttpPut("editprofile/{id}")]
+        public IActionResult EditUser(string id, ApplicationUser updated)
+        {
+            var user = _context.User.Find(id);
+
+            if (user == null)
+                return NotFound();
+
+            user.user_name = updated.user_name;
+            user.location = updated.location;
+
+            _context.SaveChanges();
+
+            return Ok(user);
+        }
+    }
+}
+
+
+// =====================================================
+// File: Middlewares/JwtMiddleware.cs
+// =====================================================
+
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Http;
+using Microsoft.IdentityModel.Tokens;
+using System.IdentityModel.Tokens.Jwt;
+
+namespace HealthCareService.Middlewares
+{
+    public class JwtMiddleware
+    {
+        private readonly RequestDelegate _next;
+        private readonly string key = "THIS_IS_SECRET_KEY";
+
+        public JwtMiddleware(RequestDelegate next)
+        {
+            _next = next;
+        }
+
+        public async Task Invoke(HttpContext context)
+        {
+            var token = context.Request.Headers["Authorization"]
+                .FirstOrDefault()?.Split(" ").Last();
+
+            if (token != null)
+            {
+                try
+                {
+                    var tokenHandler = new JwtSecurityTokenHandler();
+                    var keyBytes = Encoding.ASCII.GetBytes(key);
+
+                    tokenHandler.ValidateToken(token, new TokenValidationParameters
+                    {
+                        ValidateIssuerSigningKey = true,
+                        IssuerSigningKey = new SymmetricSecurityKey(keyBytes),
+                        ValidateIssuer = false,
+                        ValidateAudience = false
+                    }, out SecurityToken validatedToken);
+                }
+                catch
+                {
+                    context.Response.StatusCode = 401;
+                    return;
+                }
+            }
+
+            await _next(context);
+        }
+    }
+}
+
+
+// =====================================================
+// File: Services/JwtService.cs
+// =====================================================
+
+using System;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
+using Microsoft.IdentityModel.Tokens;
+
+namespace HealthCareService.Services
+{
+    public class JwtService
+    {
+        private readonly string key = "THIS_IS_SECRET_KEY";
+
+        public string GenerateToken(string userId)
+        {
+            var tokenHandler = new JwtSecurityTokenHandler();
+            var keyBytes = Encoding.ASCII.GetBytes(key);
+
+            var tokenDescription = new SecurityTokenDescriptor
+            {
+                Subject = new ClaimsIdentity(new[]
+                {
+                    new Claim("id", userId)
+                }),
+                Expires = DateTime.UtcNow.AddHours(2),
+                SigningCredentials = new SigningCredentials(
+                    new SymmetricSecurityKey(keyBytes),
+                    SecurityAlgorithms.HmacSha256Signature
+                )
+            };
+
+            var token = tokenHandler.CreateToken(tokenDescription);
+            return tokenHandler.WriteToken(token);
+        }
+    }
+}
+
+
+// =====================================================
+// File: Startup.cs
+// =====================================================
+
+using System.Text;
+using HealthCareService.Middlewares;
+using HealthCareService.Services;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.IdentityModel.Tokens;
+
+public class Startup
+{
+    public void ConfigureServices(IServiceCollection services)
+    {
+        services.AddCors();
+        services.AddControllers();
+
+        services.AddDbContext<ApplicationDbContext>(opt =>
+            opt.UseInMemoryDatabase("HealthService"));
+
+        services.AddScoped<JwtService>();
+
+        services.AddSingleton<IHttpContextAccessor, HttpContextAccessor>();
+
+        var key = Encoding.ASCII.GetBytes("THIS_IS_SECRET_KEY");
+
+        services.AddAuthentication(x =>
+        {
+            x.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+            x.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+        })
+        .AddJwtBearer(x =>
+        {
+            x.RequireHttpsMetadata = false;
+            x.SaveToken = true;
+
+            x.TokenValidationParameters = new TokenValidationParameters
+            {
+                ValidateIssuerSigningKey = true,
+                IssuerSigningKey = new SymmetricSecurityKey(key),
+                ValidateIssuer = false,
+                ValidateAudience = false
+            };
+        });
+    }
+
+    public void Configure(IApplicationBuilder app)
+    {
+        app.UseCors(x => x
+            .AllowAnyOrigin()
+            .AllowAnyMethod()
+            .AllowAnyHeader());
+
+        app.UseRouting();
+        app.UseAuthentication();
+        app.UseAuthorization();
+
+        app.UseMiddleware<JwtMiddleware>();
+
+        app.UseEndpoints(endpoints =>
+        {
+            endpoints.MapControllers();
+        });
+    }
+}
